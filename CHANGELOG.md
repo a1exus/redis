@@ -19,6 +19,8 @@ This project has no versioned releases yet, so everything is under Unreleased.
 
 ### Changed
 
+- Makefile hardened: `restart` is sequential under `make -j`, `clean` asks for confirmation (`FORCE=1` skips; aborts without a TTY), `.SUFFIXES`/`.DELETE_ON_ERROR`/`--no-print-directory` set, `logs`/`shell` take `SERVICE=`.
+- New Makefile targets: `doctor` (Docker Engine ≥ 25, Compose ≥ 2.24, Traefik network), `check-env` (`.env.example` vs compose defaults), `check` (config + lint + check-env), `pull`, `shell`.
 - Compose files renamed to `docker-compose.yaml` and `docker-compose.override.yaml` (were `compose.yaml` / `compose.override.yaml`); Compose discovers both naming styles.
 - Compose project is named `redis` (was `redis-dev`) and the stack network key is `redis` (was `redis-net`): containers are `redis-redis-1` / `redis-redisinsight-1`, the network `redis_redis`, volumes `redis_redis-data` / `redis_redisinsight-data`. Data in the old `redis-dev_*` volumes is not migrated.
 - `docker-compose.yaml` has `${VAR:-default}` fallbacks for every variable, so `.env` is optional; added `.env.example` documenting them.

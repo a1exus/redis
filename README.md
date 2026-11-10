@@ -24,11 +24,14 @@ In RedisInsight, add a database with **Host: `redis`, Port: `6379`** — Compose
 
 | Goal | Command |
 |---|---|
+| Check host prerequisites | `make doctor` |
 | Status | `make ps` |
-| Tail logs | `make logs` |
+| Tail logs (all, or one service) | `make logs` / `make logs SERVICE=redis` |
+| Shell in a container | `make shell` / `make shell SERVICE=redisinsight` |
+| Pull newer images | `make pull`, then `make up` |
 | Stop, keep data | `make down` |
-| Stop, wipe data | `make clean` |
-| Validate compose | `make config` |
+| Stop, wipe data (asks first; `FORCE=1` skips) | `make clean` |
+| Static checks (config, shellcheck, `.env.example` drift) | `make check` |
 
 ## Traefik routing
 
