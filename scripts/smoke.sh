@@ -3,11 +3,15 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Load .env so REDISINSIGHT_PORT is available without relying on Make's export.
-# shellcheck source=/dev/null
-[[ -f .env ]] && { set -a; source .env; set +a; }
-
 cli() { docker compose exec -T redis redis-cli "$@"; }
+
+# Ask Compose for the bound address so shell-env port overrides are honoured.
+# shellcheck disable=SC2317  # invoked indirectly via check()
+ui_health() {
+  local addr
+  addr=$(docker compose port redisinsight 5540) || return 1
+  curl -fsS "http://${addr}/api/health"
+}
 
 pass=0; fail=0
 check() {
@@ -37,7 +41,7 @@ cli DEL smoke:doc smoke:bloom smoke:ts >/dev/null 2>&1 || true
 
 echo
 echo "RedisInsight:"
-check "GET /api/health"    curl -fsS "http://localhost:${REDISINSIGHT_PORT:-5540}/api/health"
+check "GET /api/health"    ui_health
 
 echo
 if [[ $fail -eq 0 ]]; then

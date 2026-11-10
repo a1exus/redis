@@ -6,7 +6,7 @@ Local-dev Redis 8 + RedisInsight, in Docker Compose.
 
 - Docker Engine ≥ 25 (or Docker Desktop ≥ 4.27) — `start_interval` in healthchecks requires Engine 25+
 - Docker Compose plugin ≥ 2.24 — verify with `docker compose version`
-- GNU Make
+- GNU Make ≥ 3.82 for strict-shell recipes (macOS ships 3.81: `brew install make`, then use `gmake`); recipes run correctly on 3.81 but without `pipefail`
 - `curl` (used by `make smoke` to probe the UI from the host)
 
 ## Quickstart
@@ -53,6 +53,6 @@ Add `requirepass` to `redis.conf`, move it into an `env_file:` referenced from `
 - `docker compose logs redis | tail -50` for startup errors.
 - Port conflict on the host? Change it in `.env` — no compose edits needed.
 - If `sysctls: net.core.somaxconn` is rejected by the Docker engine, remove that block from `compose.yaml` and add `tcp-backlog 1024` to `redis.conf`.
-- AOF refuses to load after an unclean shutdown:
-  `docker compose run --rm --entrypoint redis-check-aof redis --fix /data/appendonlydir/*.aof`
+- AOF refuses to load after an unclean shutdown (stack must be down so nothing else writes to the volume):
+  `make down && docker compose run --rm --entrypoint redis-check-aof redis --fix /data/appendonlydir/appendonly.aof.manifest`
   then `make up`.
