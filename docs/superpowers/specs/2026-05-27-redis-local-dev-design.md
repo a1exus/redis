@@ -27,7 +27,7 @@ Redis 8 (GA May 2025) folded the previously-separate Stack modules into the cano
 
 ## Architecture
 
-> **Amendment:** `compose.override.yaml` (see below) supersedes the host port bindings in this diagram: no host ports are published and RedisInsight is routed by Traefik. The base `compose.yaml` keeps the loopback bindings; deleting the override restores them.
+> **Amendment:** `docker-compose.override.yaml` (see below) supersedes the host port bindings in this diagram: no host ports are published and RedisInsight is routed by Traefik. The base `docker-compose.yaml` keeps the loopback bindings; deleting the override restores them.
 
 ```
 ┌───────────────────────────────────────────────────┐
@@ -51,8 +51,8 @@ Redis 8 (GA May 2025) folded the previously-separate Stack modules into the cano
 
 ```
 .
-├── compose.yaml          # service definitions
-├── compose.override.yaml # Traefik routing, no host ports
+├── docker-compose.yaml          # service definitions
+├── docker-compose.override.yaml # Traefik routing, no host ports
 ├── redis.conf            # committed; mounted read-only into redis
 ├── .env                  # committed (no secrets); image versions, ports, limits
 ├── Makefile              # convenience targets
@@ -69,7 +69,7 @@ All sections honor the following, called out explicitly so the implementation ph
 
 **Compose conventions**
 - No top-level `version:` key (obsolete in current Compose Spec).
-- Filename is `compose.yaml`, not `docker-compose.yml`.
+- Filename is `docker-compose.yaml` (user-chosen; Compose also accepts `compose.yaml`, which the Compose Spec prefers). The override pairs as `docker-compose.override.yaml`.
 - Explicit project name via top-level `name:`.
 - Custom named network rather than the default.
 - All host port bindings prefixed with `127.0.0.1:`.
@@ -117,7 +117,7 @@ All sections honor the following, called out explicitly so the implementation ph
 - `make up` uses `--wait` so success means *ready*.
 - `make config` runs `docker compose config -q` for spec validation.
 
-## `compose.yaml`
+## `docker-compose.yaml`
 
 ```yaml
 name: redis
@@ -213,7 +213,7 @@ configs:
     file: ./redis.conf
 ```
 
-## `compose.override.yaml`
+## `docker-compose.override.yaml`
 
 Added after the initial design (user request). Auto-loaded; removes host port publishing and routes RedisInsight through an existing Traefik. Verified against `traefik:v3.7.17` with an entrypoint named `web`.
 
@@ -249,21 +249,21 @@ networks:
 
 ## `.env.example`
 
-All values also default inside `compose.yaml` (`${VAR:-default}`), so `.env` is optional; the repo's committed `.env` is equivalent to this file.
+All values also default inside `docker-compose.yaml` (`${VAR:-default}`), so `.env` is optional; the repo's committed `.env` is equivalent to this file.
 
 ```dotenv
 # Optional: copy to .env to override. Every value below is also the default
-# built into compose.yaml / compose.override.yaml, so the stack runs without .env.
+# built into docker-compose.yaml / docker-compose.override.yaml, so the stack runs without .env.
 # Defaults track "latest". For reproducible setups pin a tag, e.g. 8.10.3 / 3.8.0,
 # or a digest: REDIS_VERSION=8.10.3@sha256:<digest>
 REDIS_VERSION=latest
 REDISINSIGHT_VERSION=latest
 
-# Host bindings (loopback only); unused while compose.override.yaml is present
+# Host bindings (loopback only); unused while docker-compose.override.yaml is present
 REDIS_PORT=6379
 REDISINSIGHT_PORT=5540
 
-# Traefik hostname for RedisInsight (compose.override.yaml)
+# Traefik hostname for RedisInsight (docker-compose.override.yaml)
 REDISINSIGHT_HOST=redisinsight.localhost
 
 # Resource limits (keep maxmemory in redis.conf below REDIS_MEMORY)
@@ -282,7 +282,7 @@ appendfsync everysec
 
 # Networking
 bind 0.0.0.0
-# Safe: host port is bound to 127.0.0.1 in compose.yaml (redis.conf has no inline comments)
+# Safe: host port is bound to 127.0.0.1 in docker-compose.yaml (redis.conf has no inline comments)
 protected-mode no
 port 6379
 
@@ -355,7 +355,7 @@ ui: ## Print RedisInsight URL (routed by Traefik)
 
 .PHONY: config
 config: ## Validate and render the resolved compose config
-	@$(COMPOSE) config -q && echo "compose.yaml: OK"
+	@$(COMPOSE) config -q && echo "docker-compose.yaml: OK"
 
 .PHONY: smoke
 smoke: ## Smoke-verify: PING + each bundled module + UI healthy
@@ -467,7 +467,7 @@ In RedisInsight, add a database with **Host: `redis`, Port: `6379`** — Compose
 
 ## Traefik routing
 
-`compose.override.yaml` is loaded automatically. It publishes no host ports: RedisInsight is `expose`d on 5540 and routed by Traefik (router `redisinsight`, entrypoint `web`, host `redisinsight.localhost`); Redis is `expose`d on 6379.
+`docker-compose.override.yaml` is loaded automatically. It publishes no host ports: RedisInsight is `expose`d on 5540 and routed by Traefik (router `redisinsight`, entrypoint `web`, host `redisinsight.localhost`); Redis is `expose`d on 6379.
 
 - Networks: `redis_redis` (this stack) and the external `traefik_traefik` (RedisInsight only). Create/run Traefik first, otherwise `make up` fails with "network traefik_traefik declared as external, but could not be found".
 - Other containers reach Redis by joining `redis_redis` and using `redis:6379`. `make cli` still works via `docker compose exec`.
@@ -475,9 +475,9 @@ In RedisInsight, add a database with **Host: `redis`, Port: `6379`** — Compose
 
 ## Configuration
 
-Tunables are optional: every value has a default in `compose.yaml`, so the stack runs without a `.env`. To override, `cp .env.example .env` and edit it (or set variables in the shell, which win over `.env`):
+Tunables are optional: every value has a default in `docker-compose.yaml`, so the stack runs without a `.env`. To override, `cp .env.example .env` and edit it (or set variables in the shell, which win over `.env`):
 - `REDIS_VERSION`, `REDISINSIGHT_VERSION` — image tags, default `latest` (floating: `docker compose pull` moves you to new releases). Pin a tag such as `8.10.3` / `3.8.0`, or a `@sha256:` digest, for reproducible setups.
-- `REDIS_PORT`, `REDISINSIGHT_PORT` — host port bindings in `compose.yaml` (loopback only). `compose.override.yaml` resets them; delete that file to publish ports again.
+- `REDIS_PORT`, `REDISINSIGHT_PORT` — host port bindings in `docker-compose.yaml` (loopback only). `docker-compose.override.yaml` resets them; delete that file to publish ports again.
 - `REDISINSIGHT_HOST` (shell env, optional) — Traefik hostname, default `redisinsight.localhost`.
 - `REDIS_MEMORY`, `REDIS_CPUS` — resource ceilings.
 
@@ -489,14 +489,14 @@ Lives in named volumes (`redis_redis-data`, `redis_redisinsight-data`). Survives
 
 ## Adding auth later
 
-Add `requirepass` to `redis.conf`, move it into an `env_file:` referenced from `compose.yaml`, and gitignore that file. Update RedisInsight's saved connection. Intentionally absent today because Redis publishes no host port; only containers on `redis_redis` can reach it.
+Add `requirepass` to `redis.conf`, move it into an `env_file:` referenced from `docker-compose.yaml`, and gitignore that file. Update RedisInsight's saved connection. Intentionally absent today because Redis publishes no host port; only containers on `redis_redis` can reach it.
 
 ## Troubleshooting
 
-- `make config` validates `compose.yaml` against the Compose Spec before applying.
+- `make config` validates `docker-compose.yaml` against the Compose Spec before applying.
 - `docker compose logs redis | tail -50` for startup errors.
 - Port conflict on the host? Change it in `.env` — no compose edits needed.
-- If `sysctls: net.core.somaxconn` is rejected by the Docker engine, remove that block from `compose.yaml` and add `tcp-backlog 1024` to `redis.conf`.
+- If `sysctls: net.core.somaxconn` is rejected by the Docker engine, remove that block from `docker-compose.yaml` and add `tcp-backlog 1024` to `redis.conf`.
 - `make up` reports an unhealthy service? Run `make logs` for the cause, then `make down`; the failed container keeps restarting in the background until you do.
 - AOF refuses to load after an unclean shutdown (stack must be down so nothing else writes to the volume):
   `make down && docker compose run --rm --entrypoint redis-check-aof redis --fix /data/appendonlydir/appendonly.aof.manifest`

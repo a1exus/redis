@@ -4,7 +4,7 @@
 
 **Goal:** A single-command, hardened, loopback-only Docker Compose stack running Redis 8 (with bundled Search/JSON/TimeSeries/Bloom) plus RedisInsight, with durable named volumes.
 
-**Architecture:** `compose.yaml` defines two services on a dedicated bridge network. Redis takes its config via the Compose `configs:` top-level and persists to a named volume. A Makefile wraps lifecycle/validation, and `scripts/smoke.sh` is the acceptance test, written first and driven from red to green across the tasks.
+**Architecture:** `docker-compose.yaml` defines two services on a dedicated bridge network. Redis takes its config via the Compose `configs:` top-level and persists to a named volume. A Makefile wraps lifecycle/validation, and `scripts/smoke.sh` is the acceptance test, written first and driven from red to green across the tasks.
 
 **Tech Stack:** Docker Engine ≥ 25, Docker Compose plugin ≥ 2.24, GNU Make, bash, shellcheck (run via Docker).
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Filename `compose.yaml`; top-level `name: redis`; no top-level `version:`; no `container_name:`.
+- Filename `docker-compose.yaml` (user-chosen over the spec's `compose.yaml`); top-level `name: redis`; no top-level `version:`; no `container_name:`.
 - Custom bridge network keyed `redis` (`redis_redis`); named volumes `redis-data` → `/data` in redis and `redisinsight-data` → `/data` in redisinsight.
 - All host port bindings prefixed `127.0.0.1:`; ports from `.env` (`REDIS_PORT=6379`, `REDISINSIGHT_PORT=5540`).
 - Pins in `.env`: `REDIS_VERSION=8.10.3`, `REDISINSIGHT_VERSION=3.8.0` (re-verify on Docker Hub; add `@sha256:` digests if resolvable). Standard debian `redis:8` variant, not alpine.
@@ -56,7 +56,7 @@ Failure modes the spec implies but its own text doesn't test, most likely first:
 ### Task 2: Redis service, config, Makefile
 
 **Files:**
-- Create: `.env`, `redis.conf`, `compose.yaml`, `Makefile`
+- Create: `.env`, `redis.conf`, `docker-compose.yaml`, `Makefile`
 - Test: `scripts/smoke.sh` (Redis half goes green)
 
 **Interfaces:**
@@ -65,21 +65,21 @@ Failure modes the spec implies but its own text doesn't test, most likely first:
 
 - [ ] **Step 1: Create `.env`** per spec § `.env` (values from Global Constraints; `REDIS_MEMORY=1g`, `REDIS_CPUS=1.0`).
 - [ ] **Step 2: Create `redis.conf`** per spec § `redis.conf`, verbatim.
-- [ ] **Step 3: Create `compose.yaml` with only the `redis` service** plus top-level `x-logging`, `x-security`, `volumes` (both), `networks`, `configs`, per spec § `compose.yaml`. Deviation from spec text: `user: redis` is already in the spec's service block; keep it. Leave `redisinsight` out until Task 3.
+- [ ] **Step 3: Create `docker-compose.yaml` with only the `redis` service** plus top-level `x-logging`, `x-security`, `volumes` (both), `networks`, `configs`, per spec § `docker-compose.yaml`. Deviation from spec text: `user: redis` is already in the spec's service block; keep it. Leave `redisinsight` out until Task 3.
 - [ ] **Step 4: Create `Makefile`** per spec § `Makefile`, with these deviations, each a plan call: (a) drop `-include .env` / `export` — Compose already reads `.env` and lets the shell env win, whereas Make's include would clobber the shell value (Review Focus 1); (b) `ui` prints the URL from `$(COMPOSE) port redisinsight 5540` instead of `$(REDISINSIGHT_PORT)`; (c) `scan` iterates `$(COMPOSE) config --images`; (d) `lint` runs the Dockerized shellcheck from Task 1 Step 5 unconditionally (no host-install branch).
-- [ ] **Step 5: Validate** — `make config`. Expected: `compose.yaml: OK`.
+- [ ] **Step 5: Validate** — `make config`. Expected: `docker-compose.yaml: OK`.
 - [ ] **Step 6: Start** — `make up`. Expected: exits 0 only once `redis` is `healthy`; `make ps` shows `healthy`.
 - [ ] **Step 7: Run smoke** — `make smoke`. Expected: PING + 4 module checks `ok`; the `/api/health` check `FAIL` (RedisInsight not defined yet); `exit=1`.
 - [ ] **Step 8: Pin Review Focus 1** — `make down && REDIS_PORT=6390 make up && docker compose port redis 6379`. Expected: `127.0.0.1:6390`. Then `make down`. (If it prints 6379, the Makefile is still overriding the environment.)
 - [ ] **Step 9: Pin Review Focus 2** — occupy the port: `docker run -d --rm --name portblock -p 127.0.0.1:6379:80 nginx:stable-alpine` (pin the tag you actually use), run `make up; echo "exit=$?"`. Expected: non-zero exit with Docker's "port is already allocated" message, returning promptly. Cleanup: `docker rm -f portblock`.
-- [ ] **Step 10: Commit** — `git add .env redis.conf compose.yaml Makefile`; subject `Add Redis 8 service, config and Makefile`.
+- [ ] **Step 10: Commit** — `git add .env redis.conf docker-compose.yaml Makefile`; subject `Add Redis 8 service, config and Makefile`.
 
 ---
 
 ### Task 3: RedisInsight service (green)
 
 **Files:**
-- Modify: `compose.yaml` (add `redisinsight` service per spec § `compose.yaml`)
+- Modify: `docker-compose.yaml` (add `redisinsight` service per spec § `docker-compose.yaml`)
 
 **Interfaces:**
 - Consumes: `redis` service healthcheck from Task 2.
@@ -97,7 +97,7 @@ Failure modes the spec implies but its own text doesn't test, most likely first:
 ### Task 4: Runtime hardening and durability verification
 
 **Files:**
-- Test: none created; this task executes checks against the running stack and fixes `compose.yaml`/`redis.conf` only if a check fails.
+- Test: none created; this task executes checks against the running stack and fixes `docker-compose.yaml`/`redis.conf` only if a check fails.
 
 **Interfaces:**
 - Consumes: the running stack from Task 3.
@@ -118,8 +118,8 @@ Failure modes the spec implies but its own text doesn't test, most likely first:
 
 - [ ] **Step 1: Create `.gitignore`** per spec § `.gitignore`, verbatim.
 - [ ] **Step 2: Create `README.md`** per spec § `README.md`, verbatim (inner fenced content as authored), updating nothing but the Docker/Compose version floors if Task 2 showed a higher requirement.
-- [ ] **Step 3: Final gate** — `make config && make lint && make down && make up && make smoke && make scan`. Expected: `compose.yaml: OK`, `shellcheck: OK`, smoke `5 passed`; `make scan` either prints CVE summaries or the documented "docker scout not available" message, exit 0 either way.
-- [ ] **Step 4: Audit against spec** — walk spec § "Best-practices principles applied" line by line against `compose.yaml` and `Makefile`; fix any gap.
+- [ ] **Step 3: Final gate** — `make config && make lint && make down && make up && make smoke && make scan`. Expected: `docker-compose.yaml: OK`, `shellcheck: OK`, smoke `5 passed`; `make scan` either prints CVE summaries or the documented "docker scout not available" message, exit 0 either way.
+- [ ] **Step 4: Audit against spec** — walk spec § "Best-practices principles applied" line by line against `docker-compose.yaml` and `Makefile`; fix any gap.
 - [ ] **Step 5: Commit** — subject `Add README and .gitignore`.
 - [ ] **Step 6: Stop.** Do not push. Report the branch name and ask the user whether to push and open a PR.
 

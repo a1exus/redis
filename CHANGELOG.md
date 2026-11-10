@@ -11,7 +11,7 @@ This project has no versioned releases yet, so everything is under Unreleased.
 
 - Docker Compose stack: Redis 8.10.3 (bundled Search, JSON, TimeSeries, Bloom) and RedisInsight 3.8.0, with durable named volumes and AOF persistence (`appendfsync everysec`).
 - Runtime hardening on Redis: non-root `user: redis`, `cap_drop: [ALL]`, `no-new-privileges`, read-only root filesystem, `init`, memory/CPU limits, json-file log rotation.
-- `compose.override.yaml`: no published host ports; RedisInsight is routed by Traefik (`redisinsight.localhost`, overridable with `REDISINSIGHT_HOST`) over the external `traefik_traefik` network; the stack network is named `redis_redis`.
+- `docker-compose.override.yaml`: no published host ports; RedisInsight is routed by Traefik (`redisinsight.localhost`, overridable with `REDISINSIGHT_HOST`) over the external `traefik_traefik` network; the stack network is named `redis_redis`.
 - Makefile targets: `up`, `down`, `restart`, `clean`, `ps`, `logs`, `cli`, `ui`, `config`, `smoke`, `lint`, `scan`, `help`.
 - `scripts/smoke.sh`: verifies PING, JSON, Search, Bloom, TimeSeries and RedisInsight health.
 - Design spec and implementation plan under `docs/superpowers/`.
@@ -19,8 +19,9 @@ This project has no versioned releases yet, so everything is under Unreleased.
 
 ### Changed
 
+- Compose files renamed to `docker-compose.yaml` and `docker-compose.override.yaml` (were `compose.yaml` / `compose.override.yaml`); Compose discovers both naming styles.
 - Compose project is named `redis` (was `redis-dev`) and the stack network key is `redis` (was `redis-net`): containers are `redis-redis-1` / `redis-redisinsight-1`, the network `redis_redis`, volumes `redis_redis-data` / `redis_redisinsight-data`. Data in the old `redis-dev_*` volumes is not migrated.
-- `compose.yaml` has `${VAR:-default}` fallbacks for every variable, so `.env` is optional; added `.env.example` documenting them.
+- `docker-compose.yaml` has `${VAR:-default}` fallbacks for every variable, so `.env` is optional; added `.env.example` documenting them.
 - `REDIS_VERSION` and `REDISINSIGHT_VERSION` default to `latest` (previously pinned to 8.10.3 / 3.8.0); pin them in `.env` for reproducible setups.
 - Redis now sets `maxmemory 768mb` with `noeviction`, below the 1g container limit, so it returns OOM errors instead of being killed by the kernel.
 - Spec and README synced to the implemented files; README documents Traefik routing, the GNU Make 3.82 floor, and failed-`make up` troubleshooting.

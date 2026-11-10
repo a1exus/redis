@@ -53,7 +53,7 @@ ui: ## Print RedisInsight URL (routed by Traefik)
 
 .PHONY: config
 config: ## Validate and render the resolved compose config
-	@$(COMPOSE) config -q && echo "compose.yaml: OK"
+	@$(COMPOSE) config -q && echo "docker-compose.yaml: OK"
 
 .PHONY: smoke
 smoke: ## Smoke-verify: PING + each bundled module + UI healthy
