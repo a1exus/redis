@@ -1,0 +1,32 @@
+# Local environment: copy .env.example to .env to override defaults.
+# Never commit real values; the example file stays tracked.
+.env
+.env.*
+!.env.example
+
+# Redis data that must live in Docker volumes, not the repo
+*.rdb
+*.aof
+appendonlydir/
+
+# Logs and scratch
+*.log
+*.bak
+*.orig
+
+# Agent workspace (superpowers plans' progress ledgers)
+.superpowers/
+
+# macOS
+.DS_Store
+._*
+
+# Windows
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

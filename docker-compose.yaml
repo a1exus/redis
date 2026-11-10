@@ -1,0 +1,91 @@
+name: redis
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-security: &default-security
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  init: true
+
+services:
+  redis:
+    image: redis:${REDIS_VERSION:-latest}
+    hostname: redis
+    user: redis
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    configs:
+      - source: redis_conf
+        target: /usr/local/etc/redis/redis.conf
+    networks: [redis]
+    environment:
+      TZ: UTC
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    sysctls:
+      net.core.somaxconn: "1024"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+      start_interval: 1s         # tight probes during startup; falls back to interval after healthy
+    stop_grace_period: 1m
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${REDIS_MEMORY:-1g}
+          cpus: "${REDIS_CPUS:-1.0}"
+    <<: *default-security
+    logging: *default-logging
+
+  redisinsight:
+    image: redis/redisinsight:${REDISINSIGHT_VERSION:-latest}
+    hostname: redisinsight
+    ports:
+      - "127.0.0.1:${REDISINSIGHT_PORT:-5540}:5540"
+    volumes:
+      - redisinsight-data:/data
+    networks: [redis]
+    environment:
+      TZ: UTC
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:5540/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+      start_interval: 2s
+    restart: unless-stopped
+    <<: *default-security
+    logging: *default-logging
+
+volumes:
+  redis-data:
+  redisinsight-data:
+
+networks:
+  redis:
+    driver: bridge
+
+configs:
+  redis_conf:
+    file: ./redis.conf
