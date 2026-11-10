@@ -19,6 +19,7 @@ This project has no versioned releases yet, so everything is under Unreleased.
 
 ### Changed
 
+- `.env` is no longer tracked (now ignored); `.env.example` documents the optional overrides.
 - `.gitignore` now ignores `.env` / `.env.*` (keeping `.env.example`), Redis data files, logs, backups, the `.superpowers/` agent workspace, and OS/editor files.
 - Makefile hardened: `restart` is sequential under `make -j`, `clean` asks for confirmation (`FORCE=1` skips; aborts without a TTY), `.SUFFIXES`/`.DELETE_ON_ERROR`/`--no-print-directory` set, `logs`/`shell` take `SERVICE=`.
 - New Makefile targets: `doctor` (Docker Engine ≥ 25, Compose ≥ 2.24, Traefik network), `check-env` (`.env.example` vs compose defaults), `check` (config + lint + check-env), `pull`, `shell`.
