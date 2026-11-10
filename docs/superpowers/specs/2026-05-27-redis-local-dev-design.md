@@ -563,14 +563,41 @@ Add `requirepass` to `redis.conf`, move it into an `env_file:` referenced from `
 ## `.gitignore`
 
 ```gitignore
+# Local environment: copy .env.example to .env to override defaults.
+# Never commit real values; the example file stays tracked.
+.env
+.env.*
+!.env.example
+
+# Redis data that must live in Docker volumes, not the repo
+*.rdb
+*.aof
+appendonlydir/
+
+# Logs and scratch
+*.log
+*.bak
+*.orig
+
+# Agent workspace (superpowers plans' progress ledgers)
+.superpowers/
+
+# macOS
 .DS_Store
+._*
+
+# Windows
+Thumbs.db
+
+# Editors
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
 ```
 
-Volumes live in the Docker engine's storage, not the working directory, so there's nothing repo-local to ignore for data. `.env` is intentionally not ignored.
+Volumes live in the Docker engine's storage, not the working directory, so Redis data files are ignored only as a guard against accidental copies. `.env` is ignored and `.env.example` is tracked (amended from the original design, which committed `.env`, once every variable gained a compose default).
 
 ## Continuous validation (recommended, out of core scope)
 
