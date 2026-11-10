@@ -1,0 +1,68 @@
+name: redis-dev
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-security: &default-security
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  init: true
+
+services:
+  redis:
+    image: redis:${REDIS_VERSION}
+    hostname: redis
+    user: redis
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT}:6379"
+    volumes:
+      - redis-data:/data
+    configs:
+      - source: redis_conf
+        target: /usr/local/etc/redis/redis.conf
+        mode: 0444
+    networks: [redis-net]
+    environment:
+      TZ: UTC
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    sysctls:
+      net.core.somaxconn: "1024"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+      start_interval: 1s         # tight probes during startup; falls back to interval after healthy
+    stop_grace_period: 1m
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${REDIS_MEMORY}
+          cpus: "${REDIS_CPUS}"
+    <<: *default-security
+    logging: *default-logging
+
+volumes:
+  redis-data:
+  redisinsight-data:
+
+networks:
+  redis-net:
+    driver: bridge
+
+configs:
+  redis_conf:
+    file: ./redis.conf

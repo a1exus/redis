@@ -238,7 +238,8 @@ appendfsync everysec
 
 # Networking
 bind 0.0.0.0
-protected-mode no       # safe: host port is bound to 127.0.0.1 in compose.yaml
+# Safe: host port is bound to 127.0.0.1 in compose.yaml (redis.conf has no inline comments)
+protected-mode no
 port 6379
 
 # Logging
