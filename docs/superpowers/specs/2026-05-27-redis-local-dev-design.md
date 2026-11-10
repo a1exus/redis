@@ -528,6 +528,7 @@ In RedisInsight, add a database with **Host: `redis`, Port: `6379`** — Compose
 
 - Networks: `redis_redis` (this stack) and the external `traefik_traefik` (RedisInsight only). Create/run Traefik first, otherwise `make up` fails with "network traefik_traefik declared as external, but could not be found".
 - Other containers reach Redis by joining `redis_redis` and using `redis:6379`. `make cli` still works via `docker compose exec`.
+- **Security:** RedisInsight has no login and the route has no auth middleware, and Redis has no password. Bind Traefik's `web` entrypoint to `127.0.0.1` (e.g. `--entryPoints.web.address=127.0.0.1:80`, or publish `127.0.0.1:80:80`), or add an auth/IP-allowlist middleware, so the UI is not reachable from your LAN.
 - Different hostname: `REDISINSIGHT_HOST=ri.localhost make up`. Different Traefik entrypoint: edit the `entrypoints` label.
 
 ## Configuration
