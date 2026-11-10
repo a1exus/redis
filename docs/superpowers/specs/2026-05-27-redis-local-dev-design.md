@@ -136,7 +136,7 @@ x-security: &default-security
 
 services:
   redis:
-    image: redis:${REDIS_VERSION:-8.10.3}
+    image: redis:${REDIS_VERSION:-latest}
     hostname: redis
     user: redis
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
@@ -177,7 +177,7 @@ services:
     logging: *default-logging
 
   redisinsight:
-    image: redis/redisinsight:${REDISINSIGHT_VERSION:-3.8.0}
+    image: redis/redisinsight:${REDISINSIGHT_VERSION:-latest}
     hostname: redisinsight
     ports:
       - "127.0.0.1:${REDISINSIGHT_PORT:-5540}:5540"
@@ -254,10 +254,10 @@ All values also default inside `compose.yaml` (`${VAR:-default}`), so `.env` is 
 ```dotenv
 # Optional: copy to .env to override. Every value below is also the default
 # built into compose.yaml / compose.override.yaml, so the stack runs without .env.
-# Bump versions after verifying tags on Docker Hub; pin by digest for full
-# reproducibility, e.g. REDIS_VERSION=8.10.3@sha256:<digest>
-REDIS_VERSION=8.10.3
-REDISINSIGHT_VERSION=3.8.0
+# Defaults track "latest". For reproducible setups pin a tag, e.g. 8.10.3 / 3.8.0,
+# or a digest: REDIS_VERSION=8.10.3@sha256:<digest>
+REDIS_VERSION=latest
+REDISINSIGHT_VERSION=latest
 
 # Host bindings (loopback only); unused while compose.override.yaml is present
 REDIS_PORT=6379
@@ -527,7 +527,7 @@ These are not part of the deliverable but are the natural next-step hardenings o
 
 - **`read_only: true` only on Redis**, not RedisInsight. Redis is a single-purpose binary with confined writes; RedisInsight is a Node app whose transient write paths shift across versions. Locking down the UI yields little marginal security on a loopback-only port at a real maintenance cost.
 - **No auth.** External access is gated at the host port binding (`127.0.0.1:6379`). Adding `requirepass` later is a documented migration in the README.
-- **Pinned tags** were resolved against Docker Hub on 2026-11-10 (`redis:8.10.3`, `redis/redisinsight:3.8.0`). Implementation re-checks them and ideally adds `@sha256:` digests.
+- **Amendment:** image tag defaults were later changed to `latest` by user request (pin in `.env` for reproducibility). The tags below were originally resolved against Docker Hub on 2026-11-10 (`redis:8.10.3`, `redis/redisinsight:3.8.0`). Implementation re-checks them and ideally adds `@sha256:` digests.
 - **No `redis.conf` parameter sprawl.** The committed file holds only what differs meaningfully from upstream defaults: persistence, bind, protected-mode, log level. New knobs land here when they earn it.
 - **Single Redis instance.** No replicas, no cluster, no sentinel. Scope is local dev.
 - **No application service.** The repo wires up Redis + UI; consuming applications live elsewhere and connect to `127.0.0.1:6379`.

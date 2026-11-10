@@ -20,6 +20,7 @@ This project has no versioned releases yet, so everything is under Unreleased.
 ### Changed
 
 - `compose.yaml` has `${VAR:-default}` fallbacks for every variable, so `.env` is optional; added `.env.example` documenting them.
+- `REDIS_VERSION` and `REDISINSIGHT_VERSION` default to `latest` (previously pinned to 8.10.3 / 3.8.0); pin them in `.env` for reproducible setups.
 - Redis now sets `maxmemory 768mb` with `noeviction`, below the 1g container limit, so it returns OOM errors instead of being killed by the kernel.
 - Spec and README synced to the implemented files; README documents Traefik routing, the GNU Make 3.82 floor, and failed-`make up` troubleshooting.
 

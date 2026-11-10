@@ -14,7 +14,7 @@ x-security: &default-security
 
 services:
   redis:
-    image: redis:${REDIS_VERSION:-8.10.3}
+    image: redis:${REDIS_VERSION:-latest}
     hostname: redis
     user: redis
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
@@ -55,7 +55,7 @@ services:
     logging: *default-logging
 
   redisinsight:
-    image: redis/redisinsight:${REDISINSIGHT_VERSION:-3.8.0}
+    image: redis/redisinsight:${REDISINSIGHT_VERSION:-latest}
     hostname: redisinsight
     ports:
       - "127.0.0.1:${REDISINSIGHT_PORT:-5540}:5540"

@@ -41,7 +41,7 @@ In RedisInsight, add a database with **Host: `redis`, Port: `6379`** — Compose
 ## Configuration
 
 Tunables are optional: every value has a default in `compose.yaml`, so the stack runs without a `.env`. To override, `cp .env.example .env` and edit it (or set variables in the shell, which win over `.env`):
-- `REDIS_VERSION`, `REDISINSIGHT_VERSION` — image pins. Bump after verifying tags on Docker Hub; prefer `@sha256:` digests for full reproducibility.
+- `REDIS_VERSION`, `REDISINSIGHT_VERSION` — image tags, default `latest` (floating: `docker compose pull` moves you to new releases). Pin a tag such as `8.10.3` / `3.8.0`, or a `@sha256:` digest, for reproducible setups.
 - `REDIS_PORT`, `REDISINSIGHT_PORT` — host port bindings in `compose.yaml` (loopback only). `compose.override.yaml` resets them; delete that file to publish ports again.
 - `REDISINSIGHT_HOST` (shell env, optional) — Traefik hostname, default `redisinsight.localhost`.
 - `REDIS_MEMORY`, `REDIS_CPUS` — resource ceilings.
