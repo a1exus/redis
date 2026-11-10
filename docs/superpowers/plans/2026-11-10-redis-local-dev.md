@@ -12,8 +12,8 @@
 
 ## Global Constraints
 
-- Filename `compose.yaml`; top-level `name: redis-dev`; no top-level `version:`; no `container_name:`.
-- Custom bridge network `redis-net`; named volumes `redis-data` → `/data` in redis and `redisinsight-data` → `/data` in redisinsight.
+- Filename `compose.yaml`; top-level `name: redis`; no top-level `version:`; no `container_name:`.
+- Custom bridge network keyed `redis` (`redis_redis`); named volumes `redis-data` → `/data` in redis and `redisinsight-data` → `/data` in redisinsight.
 - All host port bindings prefixed `127.0.0.1:`; ports from `.env` (`REDIS_PORT=6379`, `REDISINSIGHT_PORT=5540`).
 - Pins in `.env`: `REDIS_VERSION=8.10.3`, `REDISINSIGHT_VERSION=3.8.0` (re-verify on Docker Hub; add `@sha256:` digests if resolvable). Standard debian `redis:8` variant, not alpine.
 - Redis hardening: `user: redis`, `init: true`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, `read_only: true` + `tmpfs /tmp:size=64m`, `ulimits.nofile` 65536, `sysctls net.core.somaxconn: "1024"`, `stop_grace_period: 1m`, `TZ=UTC`, `restart: unless-stopped`, json-file logging `10m`×3, memory/CPU limits from `.env`.

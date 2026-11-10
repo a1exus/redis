@@ -11,7 +11,7 @@ services:
     ports: !reset []
     expose:
       - "5540"
-    networks: [redis-net, traefik]
+    networks: [redis, traefik]
     labels:
       traefik.enable: "true"
       traefik.docker.network: traefik_traefik
@@ -20,7 +20,7 @@ services:
       traefik.http.services.redisinsight.loadbalancer.server.port: "5540"
 
 networks:
-  redis-net:
+  redis:
     name: redis_redis
   traefik:
     name: traefik_traefik

@@ -1,4 +1,4 @@
-name: redis-dev
+name: redis
 
 x-logging: &default-logging
   driver: json-file
@@ -25,7 +25,7 @@ services:
     configs:
       - source: redis_conf
         target: /usr/local/etc/redis/redis.conf
-    networks: [redis-net]
+    networks: [redis]
     environment:
       TZ: UTC
     read_only: true
@@ -61,7 +61,7 @@ services:
       - "127.0.0.1:${REDISINSIGHT_PORT:-5540}:5540"
     volumes:
       - redisinsight-data:/data
-    networks: [redis-net]
+    networks: [redis]
     environment:
       TZ: UTC
     depends_on:
@@ -83,7 +83,7 @@ volumes:
   redisinsight-data:
 
 networks:
-  redis-net:
+  redis:
     driver: bridge
 
 configs:

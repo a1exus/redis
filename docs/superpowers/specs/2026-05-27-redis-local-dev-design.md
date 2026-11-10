@@ -40,7 +40,7 @@ Redis 8 (GA May 2025) folded the previously-separate Stack modules into the cano
 
   redis-data            named volume → /data in redis
   redisinsight-data     named volume → /data in redisinsight
-  redis-net             dedicated bridge network
+  redis                 dedicated bridge network (redis_redis)
 ```
 
 - Both host ports bound to `127.0.0.1` — never reachable from the LAN.
@@ -120,7 +120,7 @@ All sections honor the following, called out explicitly so the implementation ph
 ## `compose.yaml`
 
 ```yaml
-name: redis-dev
+name: redis
 
 x-logging: &default-logging
   driver: json-file
@@ -147,7 +147,7 @@ services:
     configs:
       - source: redis_conf
         target: /usr/local/etc/redis/redis.conf
-    networks: [redis-net]
+    networks: [redis]
     environment:
       TZ: UTC
     read_only: true
@@ -183,7 +183,7 @@ services:
       - "127.0.0.1:${REDISINSIGHT_PORT:-5540}:5540"
     volumes:
       - redisinsight-data:/data
-    networks: [redis-net]
+    networks: [redis]
     environment:
       TZ: UTC
     depends_on:
@@ -205,7 +205,7 @@ volumes:
   redisinsight-data:
 
 networks:
-  redis-net:
+  redis:
     driver: bridge
 
 configs:
@@ -231,7 +231,7 @@ services:
     ports: !reset []
     expose:
       - "5540"
-    networks: [redis-net, traefik]
+    networks: [redis, traefik]
     labels:
       traefik.enable: "true"
       traefik.docker.network: traefik_traefik
@@ -240,7 +240,7 @@ services:
       traefik.http.services.redisinsight.loadbalancer.server.port: "5540"
 
 networks:
-  redis-net:
+  redis:
     name: redis_redis
   traefik:
     name: traefik_traefik
@@ -475,8 +475,8 @@ In RedisInsight, add a database with **Host: `redis`, Port: `6379`** — Compose
 
 ## Configuration
 
-Tunables in `.env`:
-- `REDIS_VERSION`, `REDISINSIGHT_VERSION` — image pins. Bump after verifying tags on Docker Hub; prefer `@sha256:` digests for full reproducibility.
+Tunables are optional: every value has a default in `compose.yaml`, so the stack runs without a `.env`. To override, `cp .env.example .env` and edit it (or set variables in the shell, which win over `.env`):
+- `REDIS_VERSION`, `REDISINSIGHT_VERSION` — image tags, default `latest` (floating: `docker compose pull` moves you to new releases). Pin a tag such as `8.10.3` / `3.8.0`, or a `@sha256:` digest, for reproducible setups.
 - `REDIS_PORT`, `REDISINSIGHT_PORT` — host port bindings in `compose.yaml` (loopback only). `compose.override.yaml` resets them; delete that file to publish ports again.
 - `REDISINSIGHT_HOST` (shell env, optional) — Traefik hostname, default `redisinsight.localhost`.
 - `REDIS_MEMORY`, `REDIS_CPUS` — resource ceilings.
@@ -485,7 +485,7 @@ Server-side Redis settings in `redis.conf`. `maxmemory` is 768mb with `noevictio
 
 ## Data
 
-Lives in named volumes (`redis-dev_redis-data`, `redis-dev_redisinsight-data`). Survives `make down`. `make clean` wipes both.
+Lives in named volumes (`redis_redis-data`, `redis_redisinsight-data`). Survives `make down`. `make clean` wipes both.
 
 ## Adding auth later
 

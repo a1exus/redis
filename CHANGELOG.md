@@ -19,6 +19,7 @@ This project has no versioned releases yet, so everything is under Unreleased.
 
 ### Changed
 
+- Compose project is named `redis` (was `redis-dev`) and the stack network key is `redis` (was `redis-net`): containers are `redis-redis-1` / `redis-redisinsight-1`, the network `redis_redis`, volumes `redis_redis-data` / `redis_redisinsight-data`. Data in the old `redis-dev_*` volumes is not migrated.
 - `compose.yaml` has `${VAR:-default}` fallbacks for every variable, so `.env` is optional; added `.env.example` documenting them.
 - `REDIS_VERSION` and `REDISINSIGHT_VERSION` default to `latest` (previously pinned to 8.10.3 / 3.8.0); pin them in `.env` for reproducible setups.
 - Redis now sets `maxmemory 768mb` with `noeviction`, below the 1g container limit, so it returns OOM errors instead of being killed by the kernel.

@@ -50,7 +50,7 @@ Server-side Redis settings in `redis.conf`. `maxmemory` is 768mb with `noevictio
 
 ## Data
 
-Lives in named volumes (`redis-dev_redis-data`, `redis-dev_redisinsight-data`). Survives `make down`. `make clean` wipes both.
+Lives in named volumes (`redis_redis-data`, `redis_redisinsight-data`). Survives `make down`. `make clean` wipes both.
 
 ## Adding auth later
 
