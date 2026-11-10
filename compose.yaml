@@ -25,7 +25,6 @@ services:
     configs:
       - source: redis_conf
         target: /usr/local/etc/redis/redis.conf
-        mode: 0444
     networks: [redis-net]
     environment:
       TZ: UTC
@@ -52,6 +51,30 @@ services:
         limits:
           memory: ${REDIS_MEMORY}
           cpus: "${REDIS_CPUS}"
+    <<: *default-security
+    logging: *default-logging
+
+  redisinsight:
+    image: redis/redisinsight:${REDISINSIGHT_VERSION}
+    hostname: redisinsight
+    ports:
+      - "127.0.0.1:${REDISINSIGHT_PORT}:5540"
+    volumes:
+      - redisinsight-data:/data
+    networks: [redis-net]
+    environment:
+      TZ: UTC
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:5540/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+      start_interval: 2s
+    restart: unless-stopped
     <<: *default-security
     logging: *default-logging
 

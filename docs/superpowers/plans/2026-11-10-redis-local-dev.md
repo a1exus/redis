@@ -17,7 +17,7 @@
 - All host port bindings prefixed `127.0.0.1:`; ports from `.env` (`REDIS_PORT=6379`, `REDISINSIGHT_PORT=5540`).
 - Pins in `.env`: `REDIS_VERSION=8.10.3`, `REDISINSIGHT_VERSION=3.8.0` (re-verify on Docker Hub; add `@sha256:` digests if resolvable). Standard debian `redis:8` variant, not alpine.
 - Redis hardening: `user: redis`, `init: true`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, `read_only: true` + `tmpfs /tmp:size=64m`, `ulimits.nofile` 65536, `sysctls net.core.somaxconn: "1024"`, `stop_grace_period: 1m`, `TZ=UTC`, `restart: unless-stopped`, json-file logging `10m`×3, memory/CPU limits from `.env`.
-- RedisInsight is **not** `read_only`; healthcheck is `wget -q --spider http://localhost:5540/api/health`; `depends_on` redis with `condition: service_healthy`.
+- RedisInsight is **not** `read_only`; healthcheck is `wget -q --spider http://127.0.0.1:5540/api/health`; `depends_on` redis with `condition: service_healthy`.
 - `redis.conf`: `appendonly yes`, `appendfsync everysec`, `bind 0.0.0.0`, `protected-mode no`, `port 6379`, `loglevel notice`. No auth.
 - `docker compose` v2 only. Makefile: `SHELL := bash`, `.SHELLFLAGS := -euo pipefail -c`, `--warn-undefined-variables --no-builtin-rules`, `.PHONY` on every target, `.DEFAULT_GOAL := help`, `make up` uses `--wait`.
 - Never `git push`, never commit to `main`, never edit a `.env` the user owns without asking (this repo's `.env` is created by this plan and is committed because it holds no secrets). Commit subjects are imperative, ≤72 chars, ending with the `Co-Authored-By` trailer from the session attribution.

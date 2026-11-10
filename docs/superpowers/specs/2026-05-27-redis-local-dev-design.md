@@ -143,7 +143,6 @@ services:
     configs:
       - source: redis_conf
         target: /usr/local/etc/redis/redis.conf
-        mode: 0444
     networks: [redis-net]
     environment:
       TZ: UTC
@@ -187,7 +186,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:5540/api/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:5540/api/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
