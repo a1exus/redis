@@ -136,12 +136,12 @@ x-security: &default-security
 
 services:
   redis:
-    image: redis:${REDIS_VERSION}
+    image: redis:${REDIS_VERSION:-8.10.3}
     hostname: redis
     user: redis
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
     ports:
-      - "127.0.0.1:${REDIS_PORT}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     configs:
@@ -171,16 +171,16 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${REDIS_MEMORY}
-          cpus: "${REDIS_CPUS}"
+          memory: ${REDIS_MEMORY:-1g}
+          cpus: "${REDIS_CPUS:-1.0}"
     <<: *default-security
     logging: *default-logging
 
   redisinsight:
-    image: redis/redisinsight:${REDISINSIGHT_VERSION}
+    image: redis/redisinsight:${REDISINSIGHT_VERSION:-3.8.0}
     hostname: redisinsight
     ports:
-      - "127.0.0.1:${REDISINSIGHT_PORT}:5540"
+      - "127.0.0.1:${REDISINSIGHT_PORT:-5540}:5540"
     volumes:
       - redisinsight-data:/data
     networks: [redis-net]
@@ -247,19 +247,26 @@ networks:
     external: true
 ```
 
-## `.env`
+## `.env.example`
+
+All values also default inside `compose.yaml` (`${VAR:-default}`), so `.env` is optional; the repo's committed `.env` is equivalent to this file.
 
 ```dotenv
-# Bump after verifying current tags on Docker Hub.
-# Ideally pin by digest:  REDIS_VERSION=8.0.3@sha256:<digest>
+# Optional: copy to .env to override. Every value below is also the default
+# built into compose.yaml / compose.override.yaml, so the stack runs without .env.
+# Bump versions after verifying tags on Docker Hub; pin by digest for full
+# reproducibility, e.g. REDIS_VERSION=8.10.3@sha256:<digest>
 REDIS_VERSION=8.10.3
 REDISINSIGHT_VERSION=3.8.0
 
-# Host bindings (loopback only)
+# Host bindings (loopback only); unused while compose.override.yaml is present
 REDIS_PORT=6379
 REDISINSIGHT_PORT=5540
 
-# Resource limits
+# Traefik hostname for RedisInsight (compose.override.yaml)
+REDISINSIGHT_HOST=redisinsight.localhost
+
+# Resource limits (keep maxmemory in redis.conf below REDIS_MEMORY)
 REDIS_MEMORY=1g
 REDIS_CPUS=1.0
 ```
