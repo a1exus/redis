@@ -5,13 +5,9 @@ cd "$(dirname "$0")/.."
 
 cli() { docker compose exec -T redis redis-cli "$@"; }
 
-# Ask Compose for the bound address so shell-env port overrides are honoured.
+# Probe inside the container: the UI publishes no host port (Traefik routes to it).
 # shellcheck disable=SC2317  # invoked indirectly via check()
-ui_health() {
-  local addr
-  addr=$(docker compose port redisinsight 5540) || return 1
-  curl -fsS "http://${addr}/api/health"
-}
+ui_health() { docker compose exec -T redisinsight wget -qO- http://127.0.0.1:5540/api/health; }
 
 pass=0; fail=0
 check() {

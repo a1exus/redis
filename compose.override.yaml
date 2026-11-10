@@ -1,0 +1,27 @@
+# Auto-loaded by `docker compose`. Routes RedisInsight through an existing Traefik
+# instead of publishing host ports. Requires the external network `traefik_traefik`.
+# Other stacks reach Redis by joining the `redis_redis` network (redis:6379).
+services:
+  redis:
+    ports: !reset []
+    expose:
+      - "6379"
+
+  redisinsight:
+    ports: !reset []
+    expose:
+      - "5540"
+    networks: [redis-net, traefik]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik_traefik
+      traefik.http.routers.redisinsight.rule: Host(`${REDISINSIGHT_HOST:-redisinsight.localhost}`)
+      traefik.http.routers.redisinsight.entrypoints: web
+      traefik.http.services.redisinsight.loadbalancer.server.port: "5540"
+
+networks:
+  redis-net:
+    name: redis_redis
+  traefik:
+    name: traefik_traefik
+    external: true

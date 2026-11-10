@@ -46,8 +46,8 @@ cli: ## Open redis-cli inside the redis container
 	$(COMPOSE) exec redis redis-cli
 
 .PHONY: ui
-ui: ## Print RedisInsight URL
-	@echo "RedisInsight: http://$$($(COMPOSE) port redisinsight 5540)"
+ui: ## Print RedisInsight URL (routed by Traefik)
+	@echo "RedisInsight: http://$${REDISINSIGHT_HOST:-redisinsight.localhost}"
 
 ##@ Validation
 
@@ -56,7 +56,7 @@ config: ## Validate and render the resolved compose config
 	@$(COMPOSE) config -q && echo "compose.yaml: OK"
 
 .PHONY: smoke
-smoke: ## Smoke-verify: PING + each bundled module + UI reachable
+smoke: ## Smoke-verify: PING + each bundled module + UI healthy
 	@./scripts/smoke.sh
 
 .PHONY: lint

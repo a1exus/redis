@@ -7,15 +7,15 @@ Local-dev Redis 8 + RedisInsight, in Docker Compose.
 - Docker Engine ≥ 25 (or Docker Desktop ≥ 4.27) — `start_interval` in healthchecks requires Engine 25+
 - Docker Compose plugin ≥ 2.24 — verify with `docker compose version`
 - GNU Make ≥ 3.82 for strict-shell recipes (macOS ships 3.81: `brew install make`, then use `gmake`); recipes run correctly on 3.81 but without `pipefail`
-- `curl` (used by `make smoke` to probe the UI from the host)
+- A running Traefik with an `web` entrypoint and the external Docker network `traefik_traefik`
 
 ## Quickstart
 
 ```bash
-make up         # start Redis (:6379) and RedisInsight (:5540), wait until healthy
+make up         # start Redis and RedisInsight, wait until healthy
 make smoke      # verify Redis + bundled modules + UI
 make cli        # open redis-cli
-open http://localhost:5540   # RedisInsight
+open http://redisinsight.localhost   # RedisInsight, routed by Traefik
 ```
 
 In RedisInsight, add a database with **Host: `redis`, Port: `6379`** — Compose's internal DNS handles the lookup. Do not use `localhost`; that points at the RedisInsight container, not Redis.
@@ -30,11 +30,20 @@ In RedisInsight, add a database with **Host: `redis`, Port: `6379`** — Compose
 | Stop, wipe data | `make clean` |
 | Validate compose | `make config` |
 
+## Traefik routing
+
+`compose.override.yaml` is loaded automatically. It publishes no host ports: RedisInsight is `expose`d on 5540 and routed by Traefik (router `redisinsight`, entrypoint `web`, host `redisinsight.localhost`); Redis is `expose`d on 6379.
+
+- Networks: `redis_redis` (this stack) and the external `traefik_traefik` (RedisInsight only). Create/run Traefik first, otherwise `make up` fails with "network traefik_traefik declared as external, but could not be found".
+- Other containers reach Redis by joining `redis_redis` and using `redis:6379`. `make cli` still works via `docker compose exec`.
+- Different hostname: `REDISINSIGHT_HOST=ri.localhost make up`. Different Traefik entrypoint: edit the `entrypoints` label.
+
 ## Configuration
 
 Tunables in `.env`:
 - `REDIS_VERSION`, `REDISINSIGHT_VERSION` — image pins. Bump after verifying tags on Docker Hub; prefer `@sha256:` digests for full reproducibility.
-- `REDIS_PORT`, `REDISINSIGHT_PORT` — host port bindings (loopback only).
+- `REDIS_PORT`, `REDISINSIGHT_PORT` — host port bindings in `compose.yaml` (loopback only). `compose.override.yaml` resets them; delete that file to publish ports again.
+- `REDISINSIGHT_HOST` (shell env, optional) — Traefik hostname, default `redisinsight.localhost`.
 - `REDIS_MEMORY`, `REDIS_CPUS` — resource ceilings.
 
 Server-side Redis settings in `redis.conf`.
@@ -45,7 +54,7 @@ Lives in named volumes (`redis-dev_redis-data`, `redis-dev_redisinsight-data`). 
 
 ## Adding auth later
 
-Add `requirepass` to `redis.conf`, move it into an `env_file:` referenced from `compose.yaml`, and gitignore that file. Update RedisInsight's saved connection. Intentionally absent today because the host port is loopback-only.
+Add `requirepass` to `redis.conf`, move it into an `env_file:` referenced from `compose.yaml`, and gitignore that file. Update RedisInsight's saved connection. Intentionally absent today because Redis publishes no host port; only containers on `redis_redis` can reach it.
 
 ## Troubleshooting
 
