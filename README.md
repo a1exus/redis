@@ -46,7 +46,7 @@ Tunables in `.env`:
 - `REDISINSIGHT_HOST` (shell env, optional) — Traefik hostname, default `redisinsight.localhost`.
 - `REDIS_MEMORY`, `REDIS_CPUS` — resource ceilings.
 
-Server-side Redis settings in `redis.conf`.
+Server-side Redis settings in `redis.conf`. `maxmemory` is 768mb with `noeviction`, under the 1g container limit; raise `REDIS_MEMORY` and `maxmemory` together.
 
 ## Data
 
@@ -62,6 +62,7 @@ Add `requirepass` to `redis.conf`, move it into an `env_file:` referenced from `
 - `docker compose logs redis | tail -50` for startup errors.
 - Port conflict on the host? Change it in `.env` — no compose edits needed.
 - If `sysctls: net.core.somaxconn` is rejected by the Docker engine, remove that block from `compose.yaml` and add `tcp-backlog 1024` to `redis.conf`.
+- `make up` reports an unhealthy service? Run `make logs` for the cause, then `make down`; the failed container keeps restarting in the background until you do.
 - AOF refuses to load after an unclean shutdown (stack must be down so nothing else writes to the volume):
   `make down && docker compose run --rm --entrypoint redis-check-aof redis --fix /data/appendonlydir/appendonly.aof.manifest`
   then `make up`.

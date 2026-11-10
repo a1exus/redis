@@ -17,6 +17,11 @@ This project has no versioned releases yet, so everything is under Unreleased.
 - Design spec and implementation plan under `docs/superpowers/`.
 - README with quickstart, Traefik routing, troubleshooting and AOF recovery steps.
 
+### Changed
+
+- Redis now sets `maxmemory 768mb` with `noeviction`, below the 1g container limit, so it returns OOM errors instead of being killed by the kernel.
+- Spec and README synced to the implemented files; README documents Traefik routing, the GNU Make 3.82 floor, and failed-`make up` troubleshooting.
+
 ### Fixed
 
 - `redis.conf`: moved the `protected-mode` comment onto its own line; Redis rejects trailing comments and crash-looped.

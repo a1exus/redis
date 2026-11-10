@@ -27,6 +27,8 @@ Redis 8 (GA May 2025) folded the previously-separate Stack modules into the cano
 
 ## Architecture
 
+> **Amendment:** `compose.override.yaml` (see below) supersedes the host port bindings in this diagram: no host ports are published and RedisInsight is routed by Traefik. The base `compose.yaml` keeps the loopback bindings; deleting the override restores them.
+
 ```
 ┌───────────────────────────────────────────────────┐
 │  host (localhost)                                 │
@@ -50,12 +52,14 @@ Redis 8 (GA May 2025) folded the previously-separate Stack modules into the cano
 ```
 .
 ├── compose.yaml          # service definitions
+├── compose.override.yaml # Traefik routing, no host ports
 ├── redis.conf            # committed; mounted read-only into redis
 ├── .env                  # committed (no secrets); image versions, ports, limits
 ├── Makefile              # convenience targets
 ├── scripts/
 │   └── smoke.sh          # PING + module + UI verification
 ├── .gitignore
+├── CHANGELOG.md
 └── README.md
 ```
 
@@ -101,7 +105,7 @@ All sections honor the following, called out explicitly so the implementation ph
 - Named volume, not a bind mount, to avoid host UID/GID surprises.
 
 **Config delivery**
-- `redis.conf` provided via the Compose Spec `configs:` top-level (not as a bind mount). More declarative, portable (same shape in swarm/k8s), and lets us set explicit file mode.
+- `redis.conf` provided via the Compose Spec `configs:` top-level (not as a bind mount). More declarative, portable (same shape in swarm/k8s), and keeps the config in the Compose file. (`mode:` is Swarm-only and was dropped.)
 
 **Makefile / DX**
 - `docker compose` (v2 plugin) only; v1 is EoL.
@@ -109,7 +113,7 @@ All sections honor the following, called out explicitly so the implementation ph
 - `MAKEFLAGS += --warn-undefined-variables --no-builtin-rules` for strictness.
 - `.PHONY` on every target.
 - `.DEFAULT_GOAL := help`, with a self-documenting `help` target.
-- `-include .env` + `export` so Make and Compose see the same variables.
+- No `-include .env`/`export`: Compose owns `.env` and lets the shell environment win; Make-side inclusion would clobber `REDIS_PORT=6390 make up`.
 - `make up` uses `--wait` so success means *ready*.
 - `make config` runs `docker compose config -q` for spec validation.
 
@@ -209,6 +213,40 @@ configs:
     file: ./redis.conf
 ```
 
+## `compose.override.yaml`
+
+Added after the initial design (user request). Auto-loaded; removes host port publishing and routes RedisInsight through an existing Traefik. Verified against `traefik:v3.7.17` with an entrypoint named `web`.
+
+```yaml
+# Auto-loaded by `docker compose`. Routes RedisInsight through an existing Traefik
+# instead of publishing host ports. Requires the external network `traefik_traefik`.
+# Other stacks reach Redis by joining the `redis_redis` network (redis:6379).
+services:
+  redis:
+    ports: !reset []
+    expose:
+      - "6379"
+
+  redisinsight:
+    ports: !reset []
+    expose:
+      - "5540"
+    networks: [redis-net, traefik]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik_traefik
+      traefik.http.routers.redisinsight.rule: Host(`${REDISINSIGHT_HOST:-redisinsight.localhost}`)
+      traefik.http.routers.redisinsight.entrypoints: web
+      traefik.http.services.redisinsight.loadbalancer.server.port: "5540"
+
+networks:
+  redis-net:
+    name: redis_redis
+  traefik:
+    name: traefik_traefik
+    external: true
+```
+
 ## `.env`
 
 ```dotenv
@@ -241,6 +279,11 @@ bind 0.0.0.0
 protected-mode no
 port 6379
 
+# Memory: stay under the 1g container limit (REDIS_MEMORY) so Redis returns OOM
+# errors instead of the kernel killing it; headroom is for AOF rewrite and buffers.
+maxmemory 768mb
+maxmemory-policy noeviction
+
 # Logging
 loglevel notice
 ```
@@ -255,10 +298,8 @@ SHELL := bash
 MAKEFLAGS += --warn-undefined-variables --no-builtin-rules
 .DEFAULT_GOAL := help
 
--include .env
-export
-
 COMPOSE ?= docker compose
+SHELLCHECK_IMAGE ?= koalaman/shellcheck:v0.10.0
 
 ##@ Help
 
@@ -300,8 +341,8 @@ cli: ## Open redis-cli inside the redis container
 	$(COMPOSE) exec redis redis-cli
 
 .PHONY: ui
-ui: ## Print RedisInsight URL
-	@echo "RedisInsight: http://localhost:$(REDISINSIGHT_PORT)"
+ui: ## Print RedisInsight URL (routed by Traefik)
+	@echo "RedisInsight: http://$${REDISINSIGHT_HOST:-redisinsight.localhost}"
 
 ##@ Validation
 
@@ -310,22 +351,17 @@ config: ## Validate and render the resolved compose config
 	@$(COMPOSE) config -q && echo "compose.yaml: OK"
 
 .PHONY: smoke
-smoke: ## Smoke-verify: PING + each bundled module + UI reachable
+smoke: ## Smoke-verify: PING + each bundled module + UI healthy
 	@./scripts/smoke.sh
 
 .PHONY: lint
-lint: ## Shellcheck scripts/ (no-op if shellcheck not installed)
-	@if command -v shellcheck >/dev/null; then \
-		shellcheck scripts/*.sh && echo "shellcheck: OK"; \
-	else \
-		echo "shellcheck not installed — skipping"; \
-	fi
+lint: ## Shellcheck scripts/ (runs in Docker)
+	@docker run --rm -v "$$PWD":/mnt -w /mnt $(SHELLCHECK_IMAGE) scripts/*.sh && echo "shellcheck: OK"
 
 .PHONY: scan
 scan: ## Scan pinned images for CVEs (uses docker scout if available)
 	@if docker scout --help >/dev/null 2>&1; then \
-		docker scout cves redis:$(REDIS_VERSION); \
-		docker scout cves redis/redisinsight:$(REDISINSIGHT_VERSION); \
+		for image in $$($(COMPOSE) config --images); do docker scout cves "$$image"; done; \
 	else \
 		echo "docker scout not available — install Docker Desktop ≥ 4.17 or 'docker scout' CLI"; \
 	fi
@@ -339,10 +375,11 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Load .env so REDISINSIGHT_PORT is available without relying on Make's export.
-[[ -f .env ]] && { set -a; source .env; set +a; }
-
 cli() { docker compose exec -T redis redis-cli "$@"; }
+
+# Probe inside the container: the UI publishes no host port (Traefik routes to it).
+# shellcheck disable=SC2317  # invoked indirectly via check()
+ui_health() { docker compose exec -T redisinsight wget -qO- http://127.0.0.1:5540/api/health; }
 
 pass=0; fail=0
 check() {
@@ -368,11 +405,11 @@ check "Search (FT._LIST)"  cli FT._LIST
 check "Bloom (BF.ADD)"     cli BF.ADD smoke:bloom item
 check "TimeSeries (TS.ADD)" cli TS.ADD smoke:ts '*' 42
 
-cli DEL smoke:doc smoke:bloom smoke:ts >/dev/null || true
+cli DEL smoke:doc smoke:bloom smoke:ts >/dev/null 2>&1 || true
 
 echo
 echo "RedisInsight:"
-check "GET /api/health"    curl -fsS "http://localhost:${REDISINSIGHT_PORT:-5540}/api/health"
+check "GET /api/health"    ui_health
 
 echo
 if [[ $fail -eq 0 ]]; then
@@ -397,16 +434,16 @@ Local-dev Redis 8 + RedisInsight, in Docker Compose.
 
 - Docker Engine ≥ 25 (or Docker Desktop ≥ 4.27) — `start_interval` in healthchecks requires Engine 25+
 - Docker Compose plugin ≥ 2.24 — verify with `docker compose version`
-- GNU Make
-- `curl` (used by `make smoke` to probe the UI from the host)
+- GNU Make ≥ 3.82 for strict-shell recipes (macOS ships 3.81: `brew install make`, then use `gmake`); recipes run correctly on 3.81 but without `pipefail`
+- A running Traefik with an `web` entrypoint and the external Docker network `traefik_traefik`
 
 ## Quickstart
 
 ```bash
-make up         # start Redis (:6379) and RedisInsight (:5540), wait until healthy
+make up         # start Redis and RedisInsight, wait until healthy
 make smoke      # verify Redis + bundled modules + UI
 make cli        # open redis-cli
-open http://localhost:5540   # RedisInsight
+open http://redisinsight.localhost   # RedisInsight, routed by Traefik
 ```
 
 In RedisInsight, add a database with **Host: `redis`, Port: `6379`** — Compose's internal DNS handles the lookup. Do not use `localhost`; that points at the RedisInsight container, not Redis.
@@ -421,14 +458,23 @@ In RedisInsight, add a database with **Host: `redis`, Port: `6379`** — Compose
 | Stop, wipe data | `make clean` |
 | Validate compose | `make config` |
 
+## Traefik routing
+
+`compose.override.yaml` is loaded automatically. It publishes no host ports: RedisInsight is `expose`d on 5540 and routed by Traefik (router `redisinsight`, entrypoint `web`, host `redisinsight.localhost`); Redis is `expose`d on 6379.
+
+- Networks: `redis_redis` (this stack) and the external `traefik_traefik` (RedisInsight only). Create/run Traefik first, otherwise `make up` fails with "network traefik_traefik declared as external, but could not be found".
+- Other containers reach Redis by joining `redis_redis` and using `redis:6379`. `make cli` still works via `docker compose exec`.
+- Different hostname: `REDISINSIGHT_HOST=ri.localhost make up`. Different Traefik entrypoint: edit the `entrypoints` label.
+
 ## Configuration
 
 Tunables in `.env`:
 - `REDIS_VERSION`, `REDISINSIGHT_VERSION` — image pins. Bump after verifying tags on Docker Hub; prefer `@sha256:` digests for full reproducibility.
-- `REDIS_PORT`, `REDISINSIGHT_PORT` — host port bindings (loopback only).
+- `REDIS_PORT`, `REDISINSIGHT_PORT` — host port bindings in `compose.yaml` (loopback only). `compose.override.yaml` resets them; delete that file to publish ports again.
+- `REDISINSIGHT_HOST` (shell env, optional) — Traefik hostname, default `redisinsight.localhost`.
 - `REDIS_MEMORY`, `REDIS_CPUS` — resource ceilings.
 
-Server-side Redis settings in `redis.conf`.
+Server-side Redis settings in `redis.conf`. `maxmemory` is 768mb with `noeviction`, under the 1g container limit; raise `REDIS_MEMORY` and `maxmemory` together.
 
 ## Data
 
@@ -436,7 +482,7 @@ Lives in named volumes (`redis-dev_redis-data`, `redis-dev_redisinsight-data`). 
 
 ## Adding auth later
 
-Add `requirepass` to `redis.conf`, move it into an `env_file:` referenced from `compose.yaml`, and gitignore that file. Update RedisInsight's saved connection. Intentionally absent today because the host port is loopback-only.
+Add `requirepass` to `redis.conf`, move it into an `env_file:` referenced from `compose.yaml`, and gitignore that file. Update RedisInsight's saved connection. Intentionally absent today because Redis publishes no host port; only containers on `redis_redis` can reach it.
 
 ## Troubleshooting
 
@@ -444,8 +490,9 @@ Add `requirepass` to `redis.conf`, move it into an `env_file:` referenced from `
 - `docker compose logs redis | tail -50` for startup errors.
 - Port conflict on the host? Change it in `.env` — no compose edits needed.
 - If `sysctls: net.core.somaxconn` is rejected by the Docker engine, remove that block from `compose.yaml` and add `tcp-backlog 1024` to `redis.conf`.
-- AOF refuses to load after an unclean shutdown:
-  `docker compose run --rm --entrypoint redis-check-aof redis --fix /data/appendonlydir/*.aof`
+- `make up` reports an unhealthy service? Run `make logs` for the cause, then `make down`; the failed container keeps restarting in the background until you do.
+- AOF refuses to load after an unclean shutdown (stack must be down so nothing else writes to the volume):
+  `make down && docker compose run --rm --entrypoint redis-check-aof redis --fix /data/appendonlydir/appendonly.aof.manifest`
   then `make up`.
 ````
 
